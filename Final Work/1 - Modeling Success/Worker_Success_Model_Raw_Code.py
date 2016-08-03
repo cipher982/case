@@ -7,14 +7,16 @@
 # ### 1. Exploring the Data
 #  First we will read in the code using Python 2.7 and Pandas
 
-# In[1]:
+# In[23]:
 
 # Import libraries
 import numpy as np
 import pandas as pd
+from textblob import TextBlob
+from sklearn import cross_validation as cv
 
 
-# In[2]:
+# In[24]:
 
 # Read in the worker data
 
@@ -22,10 +24,28 @@ xls_file = pd.ExcelFile("Origami_Data.xlsx")
 worker_data = xls_file.parse('Client Information')
 print "worker data read successfully!"
 
+comments = worker_data["Comments from the employer"]    
+
+comments_list = comments.tolist()
+
+neww = []
+for comment in comments_list:
+    if type(comment) is float:
+        neww.append("TTTT")
+    if type(comment) is unicode:
+        neww.append(comment)
+
+
+scores = []
+for comment in neww:
+    testimonial = TextBlob(comment)
+    scores.append(testimonial.sentiment.polarity * testimonial.sentiment.subjectivity)
+worker_data["Sentiment"] = scores
+
 
 # Now let's to some basic exploratory analysis:
 
-# In[55]:
+# In[25]:
 
 n_workers  = np.shape(worker_data)[0]
 n_features = np.shape(worker_data)[1]
@@ -46,7 +66,7 @@ print "Successful placements after 6 months: {:.2f}%".format(success_rate)
 # First make sure to clean up non-consistent data in columns state and gender
 # 
 
-# In[56]:
+# In[36]:
 
 # Make all state data shorthand and include gender only with M or F
 worker_data['State'] = map(lambda x: x.lower(), worker_data['State'])
@@ -57,7 +77,7 @@ gender = ['M','F']
 worker_data = worker_data.loc[worker_data['Gender'].isin(gender)]
 
 # Remove NaN
-worker_data2 = worker_data.dropna(axis = 0, how = 'any', subset = ['Employed In Past 6 Months','Gender','Age','State','Education Level'])
+worker_data2 = worker_data.dropna(axis = 0, how = 'any', subset = ['Sentiment','Employed In Past 6 Months','Gender','Age','State','Education Level'])
 
 
 # #### Identify feature and target columns
@@ -65,7 +85,7 @@ worker_data2 = worker_data.dropna(axis = 0, how = 'any', subset = ['Employed In 
 # Now let's separate our data into feature and target columns, and see which features are non-numeric.<br/>
 # **Note**: For this dataset, the column (`'Placement Successful'`) is the target feature
 
-# In[57]:
+# In[54]:
 
 # Extract feature (X) and target (y) columns, and removing ID and Comments columns
 feature_cols = ['Employed In Past 6 Months','Gender','Age','State','Education Level','OFFICE/MANUAL']
@@ -73,6 +93,8 @@ target_col = ['Placement Successful']
 
 x_all = worker_data2[feature_cols]
 y_all = worker_data2[target_col]
+
+np.shape(x_all)
 
 
 # #### Preprocess feature columns
@@ -83,7 +105,7 @@ y_all = worker_data2[target_col]
 # 
 # These generated columns are called _dummy variables_, and so we will use the [`pandas.get_dummies()`](http://pandas.pydata.org/pandas-docs/stable/generated/pandas.get_dummies.html?highlight=get_dummies#pandas.get_dummies) function to create these columns.
 
-# In[58]:
+# In[55]:
 
 # Convert the target feature Y/N -Placement Successful- to 1/0
 y_all = y_all.replace({'Y':1, 'N':0})
@@ -111,10 +133,10 @@ x_all = preprocess_features(x_all)
 print "Processed feature columns ({}):-\n{}".format(len(x_all.columns), list(x_all.columns))
 
 
-# In[59]:
+# In[56]:
 
-y_all_train = y_all_train['Placement Successful'].values
-y_all_test = y_all_test['Placement Successful'].values
+y_all = y_all['Placement Successful']
+
 
 
 # ### 3. Training and Evaluating Models
@@ -123,7 +145,7 @@ y_all_test = y_all_test['Placement Successful'].values
 # 
 # As the dataset is relatively small and the results can vary from run to run. We will average 50 trials to find the most likely probability to our future predictions, assuming we do not overfit too much.
 
-# In[60]:
+# In[57]:
 
 # Import the random forest package
 from sklearn.ensemble import RandomForestClassifier 
@@ -142,7 +164,7 @@ print "The average score for this classifier over 50 trials is {:.2%}".format(np
 # 
 # With the plot below it appears that age and employment status of the past 6 months are both important indicators of future success.
 
-# In[61]:
+# In[58]:
 
 import matplotlib.pyplot as plt
 get_ipython().magic(u'matplotlib inline')
@@ -164,7 +186,7 @@ plt.xlabel('Relative Importance')
 plt.show()
 
 
-# In[62]:
+# In[59]:
 
 from sklearn.metrics import roc_curve, auc
 
@@ -185,13 +207,10 @@ plt.xlabel('False Positive Rate')
 plt.show()
 
 
-# In[63]:
+# In[60]:
 
 print "The false positive rate is {:.2%}".format(false_positive_rate[1])
 print "The true positive rate is {:.2%}".format(true_positive_rate[1])
 
 
-# In[ ]:
-
-
-
+# ## The model had an average prediction accuracy of 80%, with an AUC of 0.86. The false positive rate is 22.22% and the true positive rate is 93.33%

@@ -1,4 +1,6 @@
 library(ggplot2)
+
+## In R it is simpler to just save the excel as a CSV and then load in the data.
 clients <- read.csv("case/clients.csv")
 
 clients2 <- subset(clients, Gender %in% c("M","F"))
